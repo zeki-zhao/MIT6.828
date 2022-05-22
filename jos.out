@@ -1,0 +1,12 @@
+***
+*** Now run 'make gdb'.
+***
+
+(process:117134): GLib-WARNING **: /build/glib2.0-XBSKIw/glib2.0-2.48.2/./glib/gmem.c:483: custom memory allocation vtable not supported
+6828 decimal is XXX octal!
+Physical memory: 131072K available, base = 640K, extended = 130432K
+kernel panic at kern/pmap.c:128: mem_init: This function is not finished
+
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+qemu: terminating on signal 15 from pid 117099

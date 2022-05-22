@@ -6,14 +6,14 @@
 #include <inc/stdarg.h>
 
 
-static void	//改变屏幕上的光标位置
+static void
 putch(int ch, int *cnt)
 {
 	cputchar(ch);
 	*cnt++;
 }
 
-int	//针对格式化符号处理的
+int
 vcprintf(const char *fmt, va_list ap)
 {
 	int cnt = 0;
@@ -28,7 +28,7 @@ cprintf(const char *fmt, ...)
 	va_list ap;
 	int cnt;
 
-	va_start(ap, fmt); //处理可变参数
+	va_start(ap, fmt);
 	cnt = vcprintf(fmt, ap);
 	va_end(ap);
 

@@ -192,7 +192,6 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
-	//当屏幕满的时候，滚屏
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
@@ -433,11 +432,8 @@ cons_getc(void)
 static void
 cons_putc(int c)
 {
-	//输出到串口(serial port)
 	serial_putc(c);
-	//输出到并口(parallel port)
 	lpt_putc(c);
-	//输出到屏幕
 	cga_putc(c);
 }
 

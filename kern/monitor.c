@@ -58,18 +58,6 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	int regebp = read_ebp();  //获得ebp寄存器的内容
-	int* ebp = (int*)regebp;   //将内容转为指针类型，然后就可以获得需要的参数了
-	while(*ebp != 0) {
-        cprintf("ebp:%08x ",*ebp);
-        cprintf("eip:%08x ",*(ebp+1));
-        cprintf("args:%08x ",*(ebp+2));
-        cprintf("%08x ",*(ebp+3));
-        cprintf("%08x ",*(ebp+4));
-        cprintf("%08x ",*(ebp+5));
-        cprintf("%08x \n",*(ebp+6));
-        ebp = (int *)(*ebp);
-    }
 	return 0;
 }
 
