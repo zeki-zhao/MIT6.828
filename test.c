@@ -1,4 +1,1 @@
-
-=======
-sdasdsa
->>>>>>> lab1
+sdasdsaasadsdadddddd
