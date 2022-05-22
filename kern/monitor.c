@@ -1,6 +1,5 @@
 // Simple command-line kernel monitor useful for
 // controlling the kernel and exploring the system interactively.
-sdas
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/memlayout.h>
@@ -57,7 +56,6 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
 	int regebp = read_ebp();  //获得ebp寄存器的内容
 	int* ebp = (int*)regebp;   //将内容转为指针类型，然后就可以获得需要的参数了
 	while(*ebp != 0) {
