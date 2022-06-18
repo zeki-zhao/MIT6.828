@@ -24,7 +24,8 @@
 //
 // The PDX, PTX, PGOFF, and PGNUM macros decompose linear addresses as shown.
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
-// use PGADDR(PDX(la), PTX(la), PGOFF(la)).
+// use PGADDR(PDX(la), PTX(la), PGOFF(la)).	
+//使用PGADDR(PDX(la), PTX(la), PGOFF(la)构造一个线性地址
 
 // page number field of address
 #define PGNUM(la)	(((uintptr_t) (la)) >> PTXSHIFT)

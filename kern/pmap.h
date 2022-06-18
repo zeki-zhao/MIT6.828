@@ -22,7 +22,7 @@ extern pde_t *kern_pgdir;
  * and returns the corresponding physical address.  It panics if you pass it a
  * non-kernel virtual address.
  */
-#define PADDR(kva) _paddr(__FILE__, __LINE__, kva)
+#define PADDR(kva) _paddr(__FILE__, __LINE__, kva) //指向KERNBASE以上的虚拟地址，并返回相应的物理地址
 
 static inline physaddr_t
 _paddr(const char *file, int line, void *kva)
@@ -65,7 +65,7 @@ void	tlb_invalidate(pde_t *pgdir, void *va);
 static inline physaddr_t
 page2pa(struct PageInfo *pp)
 {
-	return (pp - pages) << PGSHIFT;
+	return (pp - pages) << PGSHIFT; //理论上pages数组首地址之后的1M空间都可做页表项中的物理基地址
 }
 
 static inline struct PageInfo*
