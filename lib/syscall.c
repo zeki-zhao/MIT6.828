@@ -3,6 +3,7 @@
 #include <inc/syscall.h>
 #include <inc/lib.h>
 
+//内核态使用系统调用
 static inline int32_t
 syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
@@ -37,6 +38,7 @@ syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	return ret;
 }
 
+//
 void
 sys_cputs(const char *s, size_t len)
 {

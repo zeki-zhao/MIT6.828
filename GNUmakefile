@@ -67,7 +67,6 @@ endif
 GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
 
 CC	:= $(GCCPREFIX)gcc -pipe
-GDB	:= $(GCCPREFIX)gdb
 AS	:= $(GCCPREFIX)as
 AR	:= $(GCCPREFIX)ar
 LD	:= $(GCCPREFIX)ld
@@ -151,7 +150,7 @@ QEMUOPTS += $(QEMUEXTRA)
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 
 gdb:
-	$(GDB) -n -x .gdbinit
+	gdb -n -x .gdbinit
 
 pre-qemu: .gdbinit
 
@@ -222,7 +221,7 @@ git-handin: handin-check
 		false; \
 	fi
 
-WEBSUB := https://6828.scripts.mit.edu/2018/handin.py
+WEBSUB := https://6828.scripts.mit.edu/2017/handin.py
 
 handin: tarball-pref myapi.key
 	@SUF=$(LAB); \
@@ -255,16 +254,12 @@ handin-check:
 		test "$$r" = y; \
 	fi
 
-UPSTREAM := $(shell git remote -v | grep "pdos.csail.mit.edu/6.828/2018/jos.git (fetch)" | awk '{split($$0,a," "); print a[1]}')
+UPSTREAM := $(shell git remote -v | grep "pdos.csail.mit.edu/6.828/2017/jos.git (fetch)" | awk '{split($$0,a," "); print a[1]}')
 
 tarball-pref: handin-check
 	@SUF=$(LAB); \
 	if test $(LAB) -eq 3 -o $(LAB) -eq 4; then \
-<<<<<<< HEAD
-		read -p "Which part would you like to submit? [a, b, c (lab 4 only)]" p; \
-=======
 		read -p "Which part would you like to submit? [a, b, c (c for lab 4 only)]" p; \
->>>>>>> lab2
 		if test "$$p" != a -a "$$p" != b; then \
 			if test ! $(LAB) -eq 4 -o ! "$$p" = c; then \
 				echo "Bad part \"$$p\""; \
@@ -276,16 +271,12 @@ tarball-pref: handin-check
 	else \
 		rm -f .suf; \
 	fi; \
-<<<<<<< HEAD
-	git archive --prefix=lab$(LAB)/ --format=tar HEAD | gzip > lab$$SUF-handin.tar.gz
-=======
 	git archive --format=tar HEAD > lab$$SUF-handin.tar; \
 	git diff $(UPSTREAM)/lab$(LAB) > /tmp/lab$$SUF-diff.patch; \
 	tar -rf lab$$SUF-handin.tar /tmp/lab$$SUF-diff.patch; \
 	gzip -c lab$$SUF-handin.tar > lab$$SUF-handin.tar.gz; \
 	rm lab$$SUF-handin.tar; \
 	rm /tmp/lab$$SUF-diff.patch; \
->>>>>>> lab2
 
 myapi.key:
 	@echo Get an API key for yourself by visiting $(WEBSUB)/

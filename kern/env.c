@@ -111,14 +111,26 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 // they are in the envs array (i.e., so that the first call to
 // env_alloc() returns envs[0]).
 //
+/* 
+ * function:		初始化所有的在envs数组中的 Env结构体，并把它们加入到 env_free_list中。 
+ * 					还要调用 env_init_percpu，这个函数要配置段式内存管理系统，让它所管理的段，
+ * 					可能具有两种访问优先级其中的一种，一个是内核运行时的0优先级，以及用户运行时的3优先级。
+ */
 void
 env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
+	for (int i = NENV-1; i >= 0; i--) {
+        struct Env *e = &envs[i];
+        e->env_id = 0;
+        e->env_status = ENV_FREE;
+        e->env_link = env_free_list;
+        env_free_list = e;
+    }   
 
-	// Per-CPU part of the initialization
-	env_init_percpu();
+    // Per-CPU part of the initialization
+    env_init_percpu();
 }
 
 // Load GDT and segment descriptors.
@@ -152,7 +164,13 @@ env_init_percpu(void)
 // Returns 0 on success, < 0 on error.  Errors include:
 //	-E_NO_MEM if page directory or table could not be allocated.
 //
-static int
+/* 
+ * function:		为当前的进程分配一个页，用来存放页表目录，同时将内核部分的内存的映射完成
+ * note:			所有的进程，不论是内核还是用户，在虚拟地址UTOP之上的内容都是一样的。
+ * @param e:		空闲环境链表
+ * @return:			返回0代表正常，否则报错
+ */
+static int 
 env_setup_vm(struct Env *e)
 {
 	int i;
@@ -163,22 +181,19 @@ env_setup_vm(struct Env *e)
 		return -E_NO_MEM;
 
 	// Now, set e->env_pgdir and initialize the page directory.
-	//
-	// Hint:
-	//    - The VA space of all envs is identical above UTOP
-	//	(except at UVPT, which we've set below).
-	//	See inc/memlayout.h for permissions and layout.
-	//	Can you use kern_pgdir as a template?  Hint: Yes.
-	//	(Make sure you got the permissions right in Lab 2.)
-	//    - The initial VA below UTOP is empty.
-	//    - You do not need to make any more calls to page_alloc.
-	//    - Note: In general, pp_ref is not maintained for
-	//	physical pages mapped only above UTOP, but env_pgdir
-	//	is an exception -- you need to increment env_pgdir's
-	//	pp_ref for env_free to work correctly.
-	//    - The functions in kern/pmap.h are handy.
-
 	// LAB 3: Your code here.
+	// 为页目录表分配一个页
+	p->pp_ref++;
+	e->env_pgdir = (pde_t *)page2kva(p);
+	
+
+	//映射UTOP下面的目录
+	for (i=0;i<PDX(UTOP);i++) {
+		e->env_pgdir[i] = 0;
+	}
+
+	//映射UTOP上面的目录
+	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -257,6 +272,13 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 // Pages should be writable by user and kernel.
 // Panic if any allocation attempt fails.
 //
+/* 
+ * function:		为用户程序分配和映射内存
+ * note:			注意要先把起始地址和终止地址进行页对齐
+ * @param e:		空闲环境链表
+ * @param va:		线性地址
+ * @param len:		长度
+ */
 static void
 region_alloc(struct Env *e, void *va, size_t len)
 {
@@ -267,6 +289,20 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	void *start = (void*)ROUNDDOWN((uint32_t)va, PGSIZE);
+	void *end = (void*)ROUNDUP((uint32_t)va+len,PGSIZE);
+	struct PageInfo *p =NULL;
+	void *i;
+	int r;
+	for(i = start; i<end; i+=PGSIZE) {
+		p = page_alloc(0);
+		if (p ==NULL)
+		panic(" region alloc, allocation failed.");
+
+		r = page_insert(e->env_pgdir, p, i, PTE_W | PTE_U);
+		if(r != 0)
+		panic("region alloc error");
+	}
 }
 
 //
@@ -276,7 +312,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 // before running the first user-mode environment.
 //
 // This function loads all loadable segments from the ELF binary image
-// into the environment's user memory, starting at the appropriate
+// into the environment's user memory, starting at the appropriateenv_alloc
 // virtual addresses indicated in the ELF program header.
 // At the same time it clears to zero any portions of these segments
 // that are marked in the program header as being mapped
@@ -291,43 +327,37 @@ region_alloc(struct Env *e, void *va, size_t len)
 // load_icode panics if it encounters problems.
 //  - How might load_icode fail?  What might be wrong with the given input?
 //
+/* 
+ * function:		加载用户程序二进制代码
+ * note:			
+ * @param e:		空闲环境链表
+ * @param binary:	二进制文件
+ */
 static void
 load_icode(struct Env *e, uint8_t *binary)
 {
-	// Hints:
-	//  Load each program segment into virtual memory
-	//  at the address specified in the ELF section header.
-	//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
-	//  Each segment's virtual address can be found in ph->p_va
-	//  and its size in memory can be found in ph->p_memsz.
-	//  The ph->p_filesz bytes from the ELF binary, starting at
-	//  'binary + ph->p_offset', should be copied to virtual address
-	//  ph->p_va.  Any remaining memory bytes should be cleared to zero.
-	//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
-	//  Use functions from the previous lab to allocate and map pages.
-	//
-	//  All page protection bits should be user read/write for now.
-	//  ELF segments are not necessarily page-aligned, but you can
-	//  assume for this function that no two segments will touch
-	//  the same virtual page.
-	//
-	//  You may find a function like region_alloc useful.
-	//
-	//  Loading the segments is much simpler if you can move data
-	//  directly into the virtual addresses stored in the ELF binary.
-	//  So which page directory should be in force during
-	//  this function?
-	//
-	//  You must also do something with the program's entry point,
-	//  to make sure that the environment starts executing there.
-	//  What?  (See env_run() and env_pop_tf() below.)
+	struct Elf *env_elf;
+    struct Proghdr *ph, *eph;
+    env_elf = (struct Elf*)binary;
+    ph = (struct Proghdr*)((uint8_t*)(env_elf) + env_elf->e_phoff);
+    eph = ph + env_elf->e_phnum;
 
-	// LAB 3: Your code here.
+    lcr3(PADDR(e->env_pgdir));
 
-	// Now map one page for the program's initial stack
-	// at virtual address USTACKTOP - PGSIZE.
+    for (; ph < eph; ph++) {
+        if(ph->p_type == ELF_PROG_LOAD) {
+            region_alloc(e, (void *)ph->p_va, ph->p_memsz);
+            memcpy((void*)ph->p_va, (void *)(binary+ph->p_offset), ph->p_filesz);
+            memset((void*)(ph->p_va + ph->p_filesz), 0, ph->p_memsz-ph->p_filesz);
+        }
+    }
 
-	// LAB 3: Your code here.
+    e->env_tf.tf_eip = env_elf->e_entry;
+    lcr3(PADDR(kern_pgdir));
+
+    // Now map one page for the program's initial stack
+    // at virtual address USTACKTOP - PGSIZE.
+    region_alloc(e, (void *)(USTACKTOP-PGSIZE), PGSIZE);
 }
 
 //
@@ -337,10 +367,20 @@ load_icode(struct Env *e, uint8_t *binary)
 // before running the first user-mode environment.
 // The new env's parent ID is set to 0.
 //
+/* 
+ * function:		先调用env_alloc分配 struct Env结构以及页目录，然后调用load_icode加载进程代码
+ * note:			
+ * @param binary:	二进制文件
+ * @param type:		空闲环境链表
+ */
 void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
+	struct Env *e;
+    env_alloc(&e, 0);
+    e->env_type = type;
+    load_icode(e, binary);
 }
 
 //
@@ -416,6 +456,11 @@ env_destroy(struct Env *e)
 //
 // This function does not return.
 //
+/* 
+ * function:		将trapframe的起始地址赋值给esp，然后用的这个顺序将栈中元素弹出到对应寄存器中
+ * note:			popal弹出tf_regs到所有的通用寄存器，接着弹出值到es，ds寄存器，接着跳过trapno和errcode，调用iret分别将栈中存储数据弹出到 EIP, CS, EFLAGS寄存器中
+ * @param tf:		当前进程的寄存器的值
+ */
 void
 env_pop_tf(struct Trapframe *tf)
 {
@@ -435,6 +480,12 @@ env_pop_tf(struct Trapframe *tf)
 //
 // This function does not return.
 //
+/* 
+ * function:		开始运行一个用户环境
+ * note:			
+ * @param e:		用户环境
+ * @param type:		空闲环境链表
+ */
 void
 env_run(struct Env *e)
 {
@@ -456,7 +507,13 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-
-	panic("env_run not yet implemented");
+	// panic("env_run not yet implemented");
+    if (curenv && curenv->env_status == ENV_RUNNING) {
+        curenv->env_status = ENV_RUNNABLE;
+    }
+    curenv = e;
+    curenv->env_status = ENV_RUNNING;
+    curenv->env_runs++;
+    lcr3(PADDR(curenv->env_pgdir));
+    env_pop_tf(&curenv->env_tf); //用户程序从此处开始
 }
-

@@ -97,7 +97,7 @@ boot_alloc(uint32_t n)
 		nextfree = ROUNDUP((char *) end, PGSIZE);
 	}	
 
-	cprintf("boot_alloc, nextfree:%x\n", nextfree);
+	// cprintf("boot_alloc, nextfree:%x\n", nextfree);
 	// Allocate a chunk large enough to hold 'n' bytes, then update
 	// nextfree.  Make sure nextfree is kept aligned
 	// to a multiple of PGSIZE.
@@ -168,7 +168,9 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-
+	//初始化NENV个管理物理页面需要的虚拟内存空间
+	envs = (struct Env*) boot_alloc(NENV * sizeof (struct Env));
+	memset(envs,0,NENV * sizeof (struct Env));
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -191,7 +193,7 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir,UPAGES,PTSIZE,PADDR(pages),PTE_W);
+	boot_map_region(kern_pgdir,UPAGES,PTSIZE,PADDR(pages),PTE_U); //fault:used to be boot_map_region(kern_pgdir,UPAGES,PTSIZE,PADDR(pages),PTE_W)
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -200,7 +202,9 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-
+	//将 envs 结构体的物理地址映射到 从 UENV 所指向的线性地址空间
+	boot_map_region(kern_pgdir,UENVS,PTSIZE,PADDR(envs),PTE_U);
+	
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -212,7 +216,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir,KSTACKTOP-KSTKSIZE,KSTKSIZE,PADDR(bootstack),PTE_U);
+	boot_map_region(kern_pgdir,KSTACKTOP-KSTKSIZE,KSTKSIZE,PADDR(bootstack),PTE_W);//fault:used to be boot_map_region(kern_pgdir,UPAGES,PTSIZE,PADDR(pages),PTE_U)
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -445,7 +449,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 //
 // Hint: the TA solution uses pgdir_walk
 /* 
- * function:		把虚拟地址空间范围[va, va+size)映射到物理空间[pa, pa+size)的映射关系加入到页表pgdir中
+ * function:		把虚拟地址空间范围[va, va+size)映射到物理空间[pa, pa+size)的映射关系加入到页目录表pgdir中
  * @note:			这个函数主要的目的是为了设置虚拟地址UTOP之上的地址范围，这一部分的地址映射是静态的，
  * 					在操作系统的运行过程中不会改变，所以这个页的PageInfo结构体中的pp_ref域的值不会发生改变。
  * @param pgdir:	页目录表指针
@@ -461,7 +465,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	int num;
 	pte_t *entry = NULL;
 	for(num = 0;num<size;num+=PGSIZE)
-	{//传入一个实际页的虚拟地址
+	{//传入一个映射页的虚拟地址
 		entry = pgdir_walk(pgdir,(void*) va,1);//给定一个页目录表指针 pgdir ，返回线性地址va所对应的页表项指针
 		*entry = (pa | PTE_P | perm);
 
@@ -496,7 +500,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 // and page2pa.
 //
 /* 
- * @function:		把一个物理内存中页pp与虚拟地址va建立映射关系
+ * function:		把一个物理内存中页pp与虚拟地址va建立映射关系
  * @param pgdir:	页目录表指针
  * @param pp:		大小
  * @param va:		线性地址
@@ -629,12 +633,28 @@ static uintptr_t user_mem_check_addr;
 // Returns 0 if the user program can access this range of addresses,
 // and -E_FAULT otherwise.
 //
+/* 
+ * @function:		检查一下当前用户态程序是否有对虚拟地址空间 [va, va+len] 的 perm| PTE_P 访问权限
+ * @param env:		进程环境
+ * @param va:		线性地址
+ */
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	uint32_t begin = (uint32_t)ROUNDDOWN(va, PGSIZE), end = (uint32_t)ROUNDUP(va + len, PGSIZE);
+    int check_perm = (perm | PTE_P);
+    uint32_t check_va = (uint32_t)va;
 
-	return 0;
+    for (; begin < end; begin += PGSIZE) {
+        pte_t *pte = pgdir_walk(env->env_pgdir, (void *)begin, 0);
+        if ((begin >= ULIM) || !pte || (*pte & check_perm) != check_perm) {
+            user_mem_check_addr = (begin >= check_va ? begin : check_va);
+            return -E_FAULT;
+        }    
+    }    
+
+    return 0;
 }
 
 //
@@ -644,6 +664,13 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 // If it cannot, 'env' is destroyed and, if env is the current
 // environment, this function will not return.
 //
+/* 
+ * @function:		判断当前用户态程序是否有对虚拟地址空间 [va, va+len] 的 perm| PTE_P 访问权限
+ * @param env:		进程环境
+ * @param va:		线性地址
+ * @param len:		地址长度
+ * @param perm:		标志位
+ */
 void
 user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 {
