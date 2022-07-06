@@ -1,4 +1,3 @@
-
 /* See COPYRIGHT for copyright information. */
 
 #include <inc/x86.h>

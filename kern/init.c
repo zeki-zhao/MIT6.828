@@ -15,6 +15,7 @@
 void
 i386_init(void)
 {
+
 	extern char edata[], end[];
 
 	// Before doing anything else, complete the ELF loading process.
@@ -30,6 +31,7 @@ i386_init(void)
 
 	// Lab 2 memory management initialization functions
 	mem_init();
+
 
 	// Lab 3 user environment initialization functions
 	env_init();

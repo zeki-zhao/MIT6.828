@@ -1,4 +1,3 @@
-
 /* See COPYRIGHT for copyright information. */
 
 #include <inc/x86.h>
@@ -169,6 +168,7 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+
 	//初始化NENV个管理物理页面需要的虚拟内存空间
 	envs = (struct Env*) boot_alloc(NENV * sizeof (struct Env));
 	memset(envs,0,NENV * sizeof (struct Env));

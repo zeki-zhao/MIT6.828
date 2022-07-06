@@ -1,4 +1,3 @@
-
 /* See COPYRIGHT for copyright information.~ */
 
 #include <inc/x86.h>
@@ -22,6 +21,7 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+
 	user_mem_assert(curenv, s, len, 0);//检查用户程序对虚拟地指空间 [s, s+len] 是否有访问权限
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);

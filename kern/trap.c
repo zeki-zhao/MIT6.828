@@ -1,4 +1,3 @@
-
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
@@ -96,6 +95,7 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+
 	// 注册中断处理函数
 	// - istrap: 1 for a trap (= exception) gate, 0 for an interrupt gate.
 	// - sel: Code segment selector for interrupt/trap handler

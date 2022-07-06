@@ -1,4 +1,3 @@
-
 // Called from entry.S to get us going.
 // entry.S already took care of defining envs, pages, uvpd, and uvpt.
 
@@ -14,6 +13,7 @@ libmain(int argc, char **argv)
 {
 	// set thisenv to point at our Env structure in envs[].
 	// LAB 3: Your code here.
+
 	thisenv = &envs[ENVX(sys_getenvid())]; //将thisenv指向当前进程环境，解决了报缺页错误
 
 	// save the name of the program so that panic() can use it

@@ -1,4 +1,3 @@
-
 /* See COPYRIGHT for copyright information. */
 
 #include <inc/mmu.h>
@@ -55,6 +54,7 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
+
 
  /*初始化中断处理函数,使中断向量和中断处理函数对应,压入中断向量以及错误码*/
 TRAPHANDLER_NOEC(handler0, T_DIVIDE)
