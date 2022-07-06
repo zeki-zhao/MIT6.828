@@ -13,7 +13,7 @@ static struct Taskstate ts;
 
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
- * additional information in the latter case.
+ * additional information in the latter case.~
  */
 static struct Trapframe *last_tf;
 
@@ -285,7 +285,7 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
-	if(tf->tf_cs && 3 == 0) {
+	if(tf->tf_cs && 3 == 0) { //查看Trapframe中记录的标志位判断是否处于内核态
 		panic("page_fault in kernel mode, fault address %d\n", fault_va);
 	}
 	// We've already handled kernel-mode exceptions, so if we get here,
