@@ -1,4 +1,5 @@
-/* See COPYRIGHT for copyright information. ~*/
+
+/* See COPYRIGHT for copyright information. */
 
 #include <inc/x86.h>
 #include <inc/mmu.h>
