@@ -1,4 +1,3 @@
-
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
@@ -31,6 +30,24 @@ struct Pseudodesc idt_pd = {
 	sizeof(idt) - 1, (uint32_t) idt
 };
 
+//中断处理函数
+void handler0();
+void handler1();
+void handler2();
+void handler3();
+void handler4();
+void handler5();
+void handler6();
+void handler7();
+void handler8();
+void handler10();
+void handler11();
+void handler12();
+void handler13();
+void handler14();
+void handler15();
+void handler16();
+void handler48();
 
 static const char *trapname(int trapno)
 {
@@ -66,13 +83,46 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
-
+/* 
+ * function:		完成中断向量表初始化以及异常/中断处理
+ * note:			使用SETGATE来初始化中断向量，
+ * 					1. 把值压入堆栈使堆栈看起来像一个结构体 Trapframe
+ * 					加载 GD_KD 的值到 %ds, %es寄存器中
+ * 					把%esp的值压入，并且传递一个指向Trapframe的指针到trap()函数中。
+ * 					调用trap
+ */
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+
+	// 注册中断处理函数
+	// - istrap: 1 for a trap (= exception) gate, 0 for an interrupt gate.
+	// - sel: Code segment selector for interrupt/trap handler
+	// - off: Offset in code segment for interrupt/trap handler
+	// - dpl: Descriptor Privilege Level 
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, handler0, 0); //除0中断
+	SETGATE(idt[T_DEBUG], 0, GD_KT, handler1, 0); 
+    SETGATE(idt[T_NMI], 0, GD_KT, handler2, 0); 
+
+	// T_BRKPT DPL 3	//断点中断
+    SETGATE(idt[T_BRKPT], 0, GD_KT, handler3, 3); 
+
+    SETGATE(idt[T_OFLOW], 0, GD_KT, handler4, 0); 
+    SETGATE(idt[T_BOUND], 0, GD_KT, handler5, 0); 
+    SETGATE(idt[T_ILLOP], 0, GD_KT, handler6, 0); 
+    SETGATE(idt[T_DEVICE], 0, GD_KT, handler7, 0); 
+    SETGATE(idt[T_DBLFLT], 0, GD_KT, handler8, 0); 
+    SETGATE(idt[T_TSS], 0, GD_KT, handler10, 0); 
+    SETGATE(idt[T_SEGNP], 0, GD_KT, handler11, 0); 
+    SETGATE(idt[T_STACK], 0, GD_KT, handler12, 0); 
+    SETGATE(idt[T_GPFLT], 0, GD_KT, handler13, 0); 
+    SETGATE(idt[T_PGFLT], 0, GD_KT, handler14, 0); 
+    SETGATE(idt[T_FPERR], 0, GD_KT, handler16, 0); 
+    // T_SYSCALL DPL 3
+    SETGATE(idt[T_SYSCALL], 0, GD_KT, handler48, 3); //系统调用
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -174,27 +224,44 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	int32_t ret_code;
 
-	// Handle spurious interrupts
-	// The hardware sometimes raises these because of noise on the
-	// IRQ line or other reasons. We don't care.
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-		cprintf("Spurious interrupt on irq 7\n");
-		print_trapframe(tf);
-		return;
-	}
-
-	// Handle clock interrupts. Don't forget to acknowledge the
-	// interrupt using lapic_eoi() before calling the scheduler!
-	// LAB 4: Your code here.
-
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
+	switch(tf->tf_trapno) {
+		case T_PGFLT:	//缺页异常
+			cprintf("page_fault!!!\n");
+			page_fault_handler(tf);
+			break;
+		case T_BRKPT:	//断点异常
+			// print_trapframe(tf);
+			monitor(tf);
+			break;
+		case T_DEBUG:	//调试模式
+			monitor(tf);
+			break;
+		case T_SYSCALL:	//系统调用
+			ret_code = syscall(
+					tf->tf_regs.reg_eax,
+					tf->tf_regs.reg_edx,
+					tf->tf_regs.reg_ecx,
+					tf->tf_regs.reg_ebx,
+					tf->tf_regs.reg_edi,
+					tf->tf_regs.reg_esi);
+			tf->tf_regs.reg_eax = ret_code; //返回值传递
+			break;
+		case IRQ_OFFSET + IRQ_SPURIOUS:
+			cprintf("Spurious interrupt on irq 7\n");
+			print_trapframe(tf);
+			break;
+		default:
+			cprintf("Unexpected trap: The user process or the kernel has a bug.\n");
+			// Unexpected trap: The user process or the kernel has a bug.
+			print_trapframe(tf);
+			if (tf->tf_cs == GD_KT)
+				panic("unhandled trap in kernel");
+			else {
+				env_destroy(curenv);
+				return;
+			}	
 	}
 }
 
@@ -269,39 +336,11 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
-
+	if(tf->tf_cs && 3 == 0) { //查看Trapframe中记录的标志位判断是否处于内核态
+		panic("page_fault in kernel mode, fault address %d\n", fault_va);
+	}
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
-
-	// Call the environment's page fault upcall, if one exists.  Set up a
-	// page fault stack frame on the user exception stack (below
-	// UXSTACKTOP), then branch to curenv->env_pgfault_upcall.
-	//
-	// The page fault upcall might cause another page fault, in which case
-	// we branch to the page fault upcall recursively, pushing another
-	// page fault stack frame on top of the user exception stack.
-	//
-	// The trap handler needs one word of scratch space at the top of the
-	// trap-time stack in order to return.  In the non-recursive case, we
-	// don't have to worry about this because the top of the regular user
-	// stack is free.  In the recursive case, this means we have to leave
-	// an extra word between the current top of the exception stack and
-	// the new stack frame because the exception stack _is_ the trap-time
-	// stack.
-	//
-	// If there's no page fault upcall, the environment didn't allocate a
-	// page for its exception stack or can't write to it, or the exception
-	// stack overflows, then destroy the environment that caused the fault.
-	// Note that the grade script assumes you will first check for the page
-	// fault upcall and print the "user fault va" message below if there is
-	// none.  The remaining three checks can be combined into a single test.
-	//
-	// Hints:
-	//   user_mem_assert() and env_run() are useful here.
-	//   To change what the user environment runs, modify 'curenv->env_tf'
-	//   (the 'tf' variable points at 'curenv->env_tf').
-
-	// LAB 4: Your code here.
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",

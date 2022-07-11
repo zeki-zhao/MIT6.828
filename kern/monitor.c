@@ -1,6 +1,5 @@
 // Simple command-line kernel monitor useful for
 // controlling the kernel and exploring the system interactively.
-
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/memlayout.h>

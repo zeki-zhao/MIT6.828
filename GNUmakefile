@@ -307,6 +307,17 @@ run-%-nox-gdb: prep-% pre-qemu
 run-%-gdb: prep-% pre-qemu
 	$(QEMU) $(QEMUOPTS) -S
 
+# For test runs
+
+prep-%:
+	$(V)$(MAKE) "INIT_CFLAGS=${INIT_CFLAGS} -DTEST=`case $* in *_*) echo $*;; *) echo user_$*;; esac`" $(IMAGES)
+
+run-%-nox-gdb: prep-% pre-qemu
+	$(QEMU) -nographic $(QEMUOPTS) -S
+
+run-%-gdb: prep-% pre-qemu
+	$(QEMU) $(QEMUOPTS) -S
+
 run-%-nox: prep-% pre-qemu
 	$(QEMU) -nographic $(QEMUOPTS)
 

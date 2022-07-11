@@ -21,6 +21,7 @@ static void boot_aps(void);
 void
 i386_init(void)
 {
+
 	extern char edata[], end[];
 
 	// Before doing anything else, complete the ELF loading process.

@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "lib.h": "c",
+        "assert.h": "c",
+        "kclock.h": "c"
+    }
+}

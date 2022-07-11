@@ -26,7 +26,7 @@ typedef int32_t envid_t;
 // stands for the current environment.
 
 #define LOG2NENV		10
-#define NENV			(1 << LOG2NENV)
+#define NENV			(1 << LOG2NENV) //最大支持1024个进程并发
 #define ENVX(envid)		((envid) & (NENV - 1))
 
 // Values of env_status in struct Env
@@ -44,6 +44,7 @@ enum EnvType {
 };
 
 struct Env {
+<<<<<<< HEAD
 	struct Trapframe env_tf;	// Saved registers
 	struct Env *env_link;		// Next free Env
 	envid_t env_id;			// Unique environment identifier
@@ -66,5 +67,18 @@ struct Env {
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
 };
+=======
+	struct Trapframe env_tf;// Saved registers 							当进程停止运行时用于保存寄存器的值
+	struct Env *env_link;	// Next free Env 							指向在env_free_list中，该结构体的后一个free的Env结构体
+	envid_t env_id;			// Unique environment identifier 			这个值可以唯一的确定使用这个结构体的用户环境是什么
+	envid_t env_parent_id;	// env_id of this env's parent				创建这个用户环境的父用户环境的env_id
+	enum EnvType env_type;	// Indicates special system environments	用于区别某个特定的用户环境
+	unsigned env_status;	// Status of the environment
+	uint32_t env_runs;	// Number of times environment has run			这个环境的页目录的虚拟地址
+
+	// Address space
+	pde_t *env_pgdir;		// Kernel virtual address of page dir		于保存进程页目录的虚拟地址
+}; 
+>>>>>>> lab3
 
 #endif // !JOS_INC_ENV_H
