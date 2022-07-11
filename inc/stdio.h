@@ -7,7 +7,7 @@
 #define NULL	((void *) 0)
 #endif /* !NULL */
 
-// lib/console.c
+// lib/stdio.c
 void	cputchar(int c);
 int	getchar(void);
 int	iscons(int fd);

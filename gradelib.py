@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import sys, os, re, time, socket, select, subprocess, errno, shutil, traceback
+import sys, os, re, time, socket, select, subprocess, errno, shutil
 from subprocess import check_call, Popen
 from optparse import OptionParser
 
@@ -49,7 +49,7 @@ def test(points, title=None, parent=None):
             try:
                 fn()
             except AssertionError as e:
-                fail = "".join(traceback.format_exception_only(type(e), e))
+                fail = str(e)
 
             # Display and handle test result
             POSSIBLE += points
@@ -436,7 +436,7 @@ Failed to shutdown QEMU.  You might need to 'killall qemu' or
     def __monitor_start(self, output):
         if b"\n" in output:
             try:
-                self.gdb = GDBClient(self.qemu.get_gdb_port(), timeout=30)
+                self.gdb = GDBClient(self.qemu.get_gdb_port(), timeout=2)
                 raise TerminateTest
             except socket.error:
                 pass

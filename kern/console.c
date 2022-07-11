@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 
 #include <kern/console.h>
+#include <kern/picirq.h>
 
 static void cons_intr(int (*proc)(void));
 static void cons_putc(int c);
@@ -192,7 +193,6 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
-	//当屏幕满的时候，滚屏
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
@@ -317,14 +317,10 @@ static int
 kbd_proc_data(void)
 {
 	int c;
-	uint8_t stat, data;
+	uint8_t data;
 	static uint32_t shift;
 
-	stat = inb(KBSTATP);
-	if ((stat & KBS_DIB) == 0)
-		return -1;
-	// Ignore data from mouse.
-	if (stat & KBS_TERR)
+	if ((inb(KBSTATP) & KBS_DIB) == 0)
 		return -1;
 
 	data = inb(KBDATAP);
@@ -374,6 +370,9 @@ kbd_intr(void)
 static void
 kbd_init(void)
 {
+	// Drain the kbd buffer so that QEMU generates interrupts.
+	kbd_intr();
+	irq_setmask_8259A(irq_mask_8259A & ~(1<<1));
 }
 
 
@@ -433,11 +432,8 @@ cons_getc(void)
 static void
 cons_putc(int c)
 {
-	//输出到串口(serial port)
 	serial_putc(c);
-	//输出到并口(parallel port)
 	lpt_putc(c);
-	//输出到屏幕
 	cga_putc(c);
 }
 

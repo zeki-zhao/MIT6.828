@@ -2,6 +2,7 @@
 
 #include <inc/mmu.h>
 #include <inc/memlayout.h>
+#include <inc/trap.h>
 
 # Shift Right Logical 
 #define SRL(val, shamt)		(((val) >> (shamt)) & ~(-1 << (32 - (shamt))))
@@ -90,7 +91,7 @@ spin:	jmp	spin
 	.p2align	PGSHIFT		# force page alignment
 	.globl		bootstack
 bootstack:
-	.space		KSTKSIZE  # 内核预留内存空间给栈使用
+	.space		KSTKSIZE
 	.globl		bootstacktop   
 bootstacktop:
 
