@@ -35,6 +35,7 @@ extern physaddr_t lapicaddr;        // Physical MMIO address of the local APIC
 extern unsigned char percpu_kstacks[NCPU][KSTKSIZE];
 
 int cpunum(void);
+
 #define thiscpu (&cpus[cpunum()])
 
 void mp_init(void);
