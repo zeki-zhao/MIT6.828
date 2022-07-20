@@ -78,9 +78,8 @@ static void check_page_installed_pgdir(void);
 // If we're out of memory, boot_alloc should panic.
 // This function may ONLY be used during initialization,
 // before the page_free_list list has been set up.
-static void *
 
-//物理内存分配器,仅返回地址
+static void *
 boot_alloc(uint32_t n)
 {
 	static char *nextfree;	// virtual address of next byte of free memory
@@ -135,9 +134,9 @@ mem_init(void)
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
-	//初始化页目录表,kern_pgdir是指向操作系统的页目录表的指针，指针存放于内核处于的虚拟地址之后,
+	//初始化页目录表,kern_pgdir是指向操作系统的页目录表的指针，指针存放于内核虚拟地址之后,
 	//操作系统之后工作在虚拟内存模式下时，就需要这个页目录表进行地址转换.
-	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
+	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);//这个地址对应的物理地址，使用时会放在CR3中
 	cprintf("kern_pgdir  is %x\n",kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 
@@ -148,7 +147,7 @@ mem_init(void)
 	// following line.)
 
 	// Permissions: kernel R, user R
-	//页目录表的第957个成员存放页表kern_pgdir的起始物理地址 PS:前面的成员用来干什么？
+	//页目录表的第957个成员存放页表kern_pgdir的起始物理地址
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 	cprintf("[PDX(UVPT)] is %d\n",PDX(UVPT));
 	cprintf("PADDR(kern_pgdir) is %p\n",PADDR(kern_pgdir));
@@ -209,7 +208,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir,KERNBASE,0xfffffff,0,PTE_W); //256M
+	boot_map_region(kern_pgdir,KERNBASE,0xffffffff-KERNBASE,0,PTE_W); //256M
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -283,7 +282,7 @@ page_init(void)
 		else
 		{
 			pages[i].pp_ref = 0;
-			//使用头插法将空闲pages加入page_free_list链表,按照页表的编号从大到小排列
+			//使用头插法将空闲pages加入page_free_list链表,按照页表的编号从大到小排列(pages[100]->pages[99]->pages[98]->...)
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
 		}
@@ -323,7 +322,7 @@ page_alloc(int alloc_flags)
     
     //返回的PageInfo 结构 pp 所对应物理页面映射的内核段虚拟地址,page2kva 返回值 KernelBase + (物理页号<<PGSHIFT)
     if (alloc_flags & ALLOC_ZERO) {
-        void * va = page2kva(pp);//如第一个地址va is f03fd000
+        void * va = page2kva(pp);//如第一个地址va is f03fd000,是内核占用的虚拟地址后面第一个空闲页面的起始地址
         memset(va, '\0', PGSIZE);
     }
     return pp;
@@ -387,7 +386,7 @@ page_decref(struct PageInfo* pp)
  * @param pgdir:	页目录表指针
  * @param va:		线性地址,在JOS中,它的值总是等于虚拟地址中段内偏移的值
  * @param create:	创建标志位
- * @return:			存放有目标页表项地址的pages数组成员地址
+ * @return:			va所对应的页表项指针
  */
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
@@ -406,13 +405,13 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 				return NULL;
 			}
 			new_page->pp_ref++;
-			*dir_entry_ptr = (page2pa(new_page) | PTE_P | PTE_W | PTE_U);//在页目录项中添加此页表的地址和页信息
+			*dir_entry_ptr = (page2pa(new_page) | PTE_P | PTE_W | PTE_U);//在页目录项中添加此页表的物理地址和页信息
 		}
 		else {
 			return NULL;
 		}	
 	}
-	//计算这个页表的基地址page_base，然后返回va所对应页表项的地址 &page_base[page_off]
+	//计算这个页表项的基地址page_base，然后返回va所对应页表项的地址 &page_base[page_off]
 	pte_t *page_base = KADDR(PTE_ADDR(*dir_entry_ptr)); //将获得的页表物理地址转为内核段虚拟地址
 	// cprintf("&page_base[page_offset] is %x\n",&page_base[page_offset]);
 	return &page_base[page_offset];
@@ -432,7 +431,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 //
 // Hint: the TA solution uses pgdir_walk
 /* 
- * function:		把虚拟地址空间范围[va, va+size)映射到物理空间[pa, pa+size)的映射关系加入到页表pgdir中
+ * function:		把虚拟地址空间范围[va, va+size)映射到物理空间[pa, pa+size)的映射关系加入到页表中
  * @note:			这个函数主要的目的是为了设置虚拟地址UTOP之上的地址范围，这一部分的地址映射是静态的，
  * 					在操作系统的运行过程中不会改变，所以这个页的PageInfo结构体中的pp_ref域的值不会发生改变。
  * @param pgdir:	页目录表指针
@@ -449,67 +448,12 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	pte_t *entry = NULL;
 	for(num = 0;num<size;num+=PGSIZE)
 	{//传入一个实际页的虚拟地址
-		entry = pgdir_walk(pgdir,(void*) va,1);//给定一个页目录表指针 pgdir ，返回线性地址va所对应的页表项指针
+		entry = pgdir_walk(pgdir,(void*) va,1);//将一个物理页和虚拟地址的映射关系加入到页表中
 		*entry = (pa | PTE_P | perm);
 
 		va += PGSIZE;
 		pa += PGSIZE;
 	}
-}
-
-//
-// Map the physical page 'pp' at virtual address 'va'.
-// The permissions (the low 12 bits) of the page table entry
-// should be set to 'perm|PTE_P'.
-//
-// Requirements
-//   - If there is already a page mapped at 'va', it should be page_remove()d.
-//   - If necessary, on demand, a page table should be allocated and inserted
-//     into 'pgdir'.
-//   - pp->pp_ref should be incremented if the insertion succeeds.
-//   - The TLB must be invalidated if a page was formerly present at 'va'.
-//
-// Corner-case hint: Make sure to consider what happens when the same
-// pp is re-inserted at the same virtual address in the same pgdir.
-// However, try not to distinguish this case in your code, as this
-// frequently leads to subtle bugs; there's an elegant way to handle
-// everything in one code path.
-//
-// RETURNS:
-//   0 on success
-//   -E_NO_MEM, if page table couldn't be allocated
-//
-// Hint: The TA solution is implemented using pgdir_walk, page_remove,
-// and page2pa.
-//
-/* 
- * @function:		把一个物理内存中页pp与虚拟地址va建立映射关系
- * @param pgdir:	页目录表指针
- * @param pp:		大小
- * @param va:		线性地址
- * @param perm:		Use permission bits perm
- */
-int
-page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
-{
-	// Fill this function in
-	pte_t *entry =NULL;
-	//通过pgdir_walk函数求出虚拟地址va所对应的页表项
-	entry = pgdir_walk(pgdir,va,1);
-	if (entry==NULL) {
-		return -E_NO_MEM;
-	}
-	//修改pp_ref的值
-	pp->pp_ref++;
-	//查看这个页表项，确定va是否已经被映射，如果被映射，则删除这个映射
-	if((*entry)  & PTE_P) {
-		tlb_invalidate(pgdir,va);
-		page_remove(pgdir,va);
-	}
-	*entry =(page2pa(pp)|perm|PTE_P);
-	pgdir[PDX(va)] |= perm;
-	
-	return 0;
 }
 
 //
@@ -567,7 +511,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 // 	tlb_invalidate, and page_decref.
 //
 /* 
- * @function:		把虚拟地址va和物理页的映射关系删除
+ * @function:		删除虚拟地址va和物理页的映射关系
  * @param va:		线性地址
  */
 void
@@ -582,6 +526,61 @@ page_remove(pde_t *pgdir, void *va)
 	page_decref(page);
 	tlb_invalidate(pgdir,va);
 	*pte = 0; //这个页对应的页表项内容应该被置0
+}
+
+//
+// Map the physical page 'pp' at virtual address 'va'.
+// The permissions (the low 12 bits) of the page table entry
+// should be set to 'perm|PTE_P'.
+//
+// Requirements
+//   - If there is already a page mapped at 'va', it should be page_remove()d.
+//   - If necessary, on demand, a page table should be allocated and inserted
+//     into 'pgdir'.
+//   - pp->pp_ref should be incremented if the insertion succeeds.
+//   - The TLB must be invalidated if a page was formerly present at 'va'.
+//
+// Corner-case hint: Make sure to consider what happens when the same
+// pp is re-inserted at the same virtual address in the same pgdir.
+// However, try not to distinguish this case in your code, as this
+// frequently leads to subtle bugs; there's an elegant way to handle
+// everything in one code path.
+//
+// RETURNS:
+//   0 on success
+//   -E_NO_MEM, if page table couldn't be allocated
+//
+// Hint: The TA solution is implemented using pgdir_walk, page_remove,
+// and page2pa.
+//
+/* 
+ * @function:		把一个物理内存中页pp与虚拟地址va建立映射关系
+ * @param pgdir:	页目录表指针
+ * @param pp:		大小
+ * @param va:		线性地址
+ * @param perm:		Use permission bits perm
+ */
+int
+page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
+{
+	// Fill this function in
+	pte_t *entry =NULL;
+	//通过pgdir_walk函数求出虚拟地址va所对应的页表项
+	entry = pgdir_walk(pgdir,va,1);
+	if (entry==NULL) {
+		return -E_NO_MEM;
+	}
+	//修改pp_ref的值
+	pp->pp_ref++;
+	//查看这个页表项，确定va是否已经被映射，如果被映射，则删除这个映射
+	if((*entry)  & PTE_P) {
+		tlb_invalidate(pgdir,va);
+		page_remove(pgdir,va);
+	}
+	*entry =(page2pa(pp)|perm|PTE_P);
+	pgdir[PDX(va)] |= perm;
+	
+	return 0;
 }
 
 //

@@ -65,11 +65,11 @@ void	tlb_invalidate(pde_t *pgdir, void *va);
 static inline physaddr_t
 page2pa(struct PageInfo *pp)
 {
-	return (pp - pages) << PGSHIFT; //理论上pages数组首地址之后的1M空间都可做页表项中的物理基地址
+	return (pp - pages) << PGSHIFT; //计算pp的偏移地址，然后再左移12位，就得到了以页为粒度的页面物理地址
 }
 
 static inline struct PageInfo*
-pa2page(physaddr_t pa)
+pa2page(physaddr_t pa)//返回的是 PageInfo 结构 pp 所对应的物理页面的内核首地址(虚拟地址)
 {
 	if (PGNUM(pa) >= npages)
 		panic("pa2page called with invalid pa");

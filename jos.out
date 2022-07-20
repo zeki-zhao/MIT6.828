@@ -2,11 +2,29 @@
 *** Now run 'make gdb'.
 ***
 
-(process:117134): GLib-WARNING **: /build/glib2.0-XBSKIw/glib2.0-2.48.2/./glib/gmem.c:483: custom memory allocation vtable not supported
-6828 decimal is XXX octal!
-Physical memory: 131072K available, base = 640K, extended = 130432K
-kernel panic at kern/pmap.c:128: mem_init: This function is not finished
-
+(process:34081): GLib-WARNING **: /build/glib2.0-XBSKIw/glib2.0-2.48.2/./glib/gmem.c:483: custom memory allocation vtable not supported
+6828 decimal is 15254 octal!
+Physical memory: 66556K available, base = 640K, extended = 65532K
+npages is 16639,npages_basemem is 160
+boot_alloc, nextfree:f0118000
+kern_pgdir  is f0118000
+[PDX(UVPT)] is 957
+PADDR(kern_pgdir) is 0x118000
+boot_alloc, nextfree:f0119000
+boot_alloc, nextfree:f013a000
+boot_alloc, nextfree:f013a000
+boot_alloc(0) is f013a000
+ npages_basemem + num_iohole + num_alloc is 570
+boot_alloc, nextfree:f013a000
+check_page_free_list() succeeded!
+check_page_alloc() succeeded!
+haven't room to alloc page
+haven't room to alloc page
+check_page() succeeded!
+check_kern_pgdir() succeeded!
+boot_alloc, nextfree:f013a000
+check_page_free_list() succeeded!
+check_page_installed_pgdir() succeeded!
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
-qemu: terminating on signal 15 from pid 117099
+qemu: terminating on signal 15 from pid 34044
